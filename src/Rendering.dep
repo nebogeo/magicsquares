@@ -1,0 +1,2 @@
+Rendering.o: src/Rendering.cpp src/Rendering.h /usr/include/opencv/cv.h \
+ /usr/include/opencv/highgui.h

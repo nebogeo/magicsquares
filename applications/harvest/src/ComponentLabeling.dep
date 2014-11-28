@@ -1,0 +1,3 @@
+ComponentLabeling.o: src/ComponentLabeling.cpp src/ComponentLabeling.h \
+ src/BlobContour.h /usr/include/opencv/cv.h src/Blob.h \
+ /usr/include/opencv/cxcore.h src/BlobLibraryConfiguration.h

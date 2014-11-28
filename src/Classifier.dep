@@ -1,0 +1,2 @@
+Classifier.o: src/Classifier.cpp src/Classifier.h src/Vector.h \
+ src/Matrix.h

@@ -1,0 +1,4 @@
+BlobResult.o: src/BlobResult.cpp src/BlobResult.h \
+ src/BlobLibraryConfiguration.h /usr/include/opencv/cxcore.h src/Blob.h \
+ src/BlobContour.h /usr/include/opencv/cv.h src/BlobOperators.h \
+ src/ComponentLabeling.h

@@ -1,0 +1,2 @@
+PCA.o: src/PCA.cpp src/PCA.h src/Vector.h src/Matrix.h src/Classifier.h \
+ src/SVD.h

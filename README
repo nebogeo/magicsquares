@@ -1,0 +1,24 @@
+Chinese literature dating from as early as 650 BC tells the legend of Lo Shu 
+or "scroll of the river Lo". In ancient China there was a huge flood. The great 
+king Yu tried to channel the water out to sea where then emerged from the water 
+a turtle with a curious figure/pattern on its shell; circular dots of numbers 
+which were arranged in a three by three grid pattern such that the sum of the 
+numbers in each row, column and diagonal was the same: 15, which is also the 
+number of days in each of the 24 cycles of the Chinese solar year.
+
+This pattern, in a certain way, was used by the people in controlling the river.
+
+--------------------------------------------------------------------------------
+
+An experimental linear algebra library for computer vision.
+Includes python bindings and a set of scripts for processing and viewing PCA 
+calculations.
+
+The code contains a few dependancies on OpenCV, but only in the image processing
+domain. I'm wary of OpenCV after problems with the code on different 
+architectures.
+
+It's not currenly optimised, but simd code is planned for the matrix 
+calculations.
+
+dave@pawfal.org

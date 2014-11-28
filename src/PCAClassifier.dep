@@ -1,0 +1,2 @@
+PCAClassifier.o: src/PCAClassifier.cpp src/PCAClassifier.h src/Vector.h \
+ src/Matrix.h src/Classifier.h src/PCA.h

@@ -1,0 +1,2 @@
+FaceFinder.o: src/FaceFinder.cpp src/FaceFinder.h \
+ /usr/include/opencv/cv.h src/Geometry.h src/Image.h src/Vector.h

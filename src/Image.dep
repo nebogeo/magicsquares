@@ -1,0 +1,2 @@
+Image.o: src/Image.cpp src/Image.h /usr/include/opencv/cv.h src/Vector.h \
+ src/Geometry.h /usr/include/opencv/highgui.h

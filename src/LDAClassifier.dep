@@ -1,0 +1,2 @@
+LDAClassifier.o: src/LDAClassifier.cpp src/LDAClassifier.h src/Vector.h \
+ src/Matrix.h src/Classifier.h

@@ -1,0 +1,2 @@
+BlobContour.o: src/BlobContour.cpp src/BlobContour.h \
+ /usr/include/opencv/cv.h /usr/include/opencv/cxcore.h
