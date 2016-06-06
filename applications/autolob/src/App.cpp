@@ -289,7 +289,7 @@ void App::Update(Image &camera)
                                      xmax-xmin,ymax-ymin);
 
         char buf[256];
-        sprintf(buf,"dump/%s.png",m_Files[m_CurrentFile].c_str());
+        sprintf(buf,"%s.auto.png",m_Files[m_CurrentFile].c_str());
         cerr<<"saving "<<buf<<endl;
         island.Save(buf);
       } else {
