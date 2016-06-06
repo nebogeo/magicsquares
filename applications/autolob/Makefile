@@ -1,4 +1,4 @@
-TARGET  := harvest
+TARGET  := autolob
 
 SRCS    := src/main.cpp\
 	src/App.cpp\

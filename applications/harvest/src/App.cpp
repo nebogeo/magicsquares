@@ -15,6 +15,7 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <assert.h>
+#include <unistd.h>
 #include <list>
 #include "App.h"
 #include "FileTools.h"
@@ -188,7 +189,9 @@ void App::Update(Image &camera)
     cvThreshold(thresh.m_Image,thresh.m_Image,t,255,CV_THRESH_BINARY);
     // copy the threshold into a colour image
     Image tofill=thresh.GRAY2RGB();
-    cvFloodFill(tofill.m_Image,cvPoint(10,10), CV_RGB(0,255,0),cvScalar(0),cvScalar(255));
+    cvFloodFill(tofill.m_Image,cvPoint(camera.m_Image->width/2,
+                                       camera.m_Image->height/2),
+                CV_RGB(0,255,0),cvScalar(0),cvScalar(255));
 
     CBlobResult blobs;
     blobs = CBlobResult( thresh.m_Image, NULL, 255 );

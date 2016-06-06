@@ -1,7 +1,4 @@
 App.o: src/App.cpp src/App.h /usr/include/opencv/cv.h \
  /usr/include/opencv/highgui.h ../../src/Image.h ../../src/Vector.h \
  ../../src/Geometry.h ../../src/FileTools.h ../../src/PCA.h \
- ../../src/Matrix.h ../../src/Classifier.h src/Blob.h \
- /usr/include/opencv/cxcore.h src/BlobLibraryConfiguration.h \
- src/BlobContour.h src/BlobResult.h src/BlobOperators.h \
- src/ComponentLabeling.h
+ ../../src/Matrix.h ../../src/Classifier.h

@@ -18,6 +18,7 @@
 #include "highgui.h"
 //#include <yarp/os/all.h>
 #include <string>
+#include <vector>
 #include <map>
 #include <Image.h>
 
@@ -33,7 +34,13 @@ public:
 	void Run();
 	void Update(Image &camera);
 
+    vector<int> m_Fillposx;
+    vector<int> m_Fillposy;
+    vector<int> m_Circleposx;
+    vector<int> m_Circleposy;
+
 private:
+    static void CallBackFunc(int event, int x, int y, int flags, void* userdata);
 
 	CvCapture* m_Capture;
 
@@ -44,4 +51,7 @@ private:
 	IplImage *m_FrameCopy;
 	int m_FrameNum;
     bool m_SingleImage;
+
+    vector<string> m_Files;
+    int m_CurrentFile;
 };

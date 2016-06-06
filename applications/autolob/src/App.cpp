@@ -15,12 +15,14 @@
 // Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 #include <assert.h>
+#include <unistd.h>
+#include <dirent.h>
 #include <list>
 #include "App.h"
 #include "FileTools.h"
 #include "PCA.h"
-#include "Blob.h"
-#include "BlobResult.h"
+//#include "Blob.h"
+//#include "BlobResult.h"
 
 //#define SAVE_FRAMES
 
@@ -37,7 +39,8 @@ m_Capture(NULL),
 m_Frame(NULL),
 m_FrameCopy(NULL),
 m_FrameNum(0),
-m_SingleImage(false)
+m_SingleImage(false),
+m_CurrentFile(0)
 {
 	if (filename=="")
 	{
@@ -50,8 +53,25 @@ m_SingleImage(false)
 	else
 	{
         cerr<<"loading from "<<filename<<endl;
-		//m_Capture = cvCaptureFromFile(filename.c_str());
-        m_Frame = cvLoadImage(filename.c_str());
+
+        DIR *dir;
+        struct dirent *ent;
+        if ((dir = opendir(filename.c_str())) != NULL) {
+          while ((ent = readdir (dir)) != NULL) {
+            if (ent->d_name[0]!='.') {
+              //cerr<<"adding "<<ent->d_name<<endl;
+              m_Files.push_back(filename+string("/")+string(ent->d_name));
+            }
+          }
+          closedir (dir);
+        }
+
+
+        m_CurrentFile=0;
+        m_Frame = cvLoadImage(m_Files[m_CurrentFile].c_str());
+        cerr<<"loaded "<<m_Files[m_CurrentFile]<<endl;
+
+
         m_SingleImage=true;
 	}
 
@@ -76,33 +96,27 @@ static CvScalar colors[] =
         {{255,0,255}},
     };
 
+
+ void App::CallBackFunc(int event, int x, int y, int flags, void* userdata) {
+  App *ctx = (App*)userdata;
+  if (event==1) {
+    ctx->m_Fillposx.push_back(x*2);
+    ctx->m_Fillposy.push_back(y*2);
+  }
+  if (event==2) {
+    ctx->m_Circleposx.push_back(x*2);
+    ctx->m_Circleposy.push_back(y*2);
+  }
+}
+
 void App::Run()
 {
-    if( !m_SingleImage )
-	{
-        m_Frame = cvQueryFrame( m_Capture );
-	}
-
-	if( !m_FrameCopy )
-        m_FrameCopy = cvCreateImage( cvSize(m_Frame->width,m_Frame->height),
-                                    IPL_DEPTH_8U, m_Frame->nChannels );
-    if( m_Frame->origin == IPL_ORIGIN_TL )
-        cvCopy( m_Frame, m_FrameCopy, 0 );
-    else
-        cvFlip( m_Frame, m_FrameCopy, 0 );
-
-	Image camera(m_FrameCopy);
+	Image camera(m_Frame);
 	Update(camera);
-
-	m_FrameNum++;
-#ifdef SAVE_FRAMES
-	char name[256];
-	sprintf(name,"out-%0.4d.jpg",m_FrameNum);
-	cerr<<"saving "<<name<<endl;
-	cvSaveImage(name,camera.m_Image);
-#endif
-
-	cvShowImage("harvest", camera.m_Image);
+    Image resized = camera.Scale(camera.m_Image->width/2,
+                                 camera.m_Image->height/2);
+	cvShowImage("harvest", resized.m_Image);
+    cvSetMouseCallback("harvest", CallBackFunc, this);
 }
 
 char *spirits[]={"TreeSpirit","ShrubSpirit","CoverSpirit"};
@@ -136,8 +150,8 @@ void App::Update(Image &camera)
 
 //    usleep(500);
 
-	static int t=177;
-    static bool viewthresh=false;
+	static int t=35;
+    static bool viewthresh=true;
     static bool off=false;
     static int spirit=0;
     static int crop_x=0;
@@ -145,37 +159,28 @@ void App::Update(Image &camera)
     static int crop_w=camera.m_Image->width;
     static int crop_h=camera.m_Image->height;
 
+    crop_x=0;
+    crop_y=0;
+    crop_w=camera.m_Image->width;
+    crop_h=camera.m_Image->height;
+
 	switch (key)
 	{
     case 't': viewthresh=!viewthresh; break;
+    case 'f': m_Fillposy.clear(); m_Fillposx.clear();
+      m_Circleposy.clear(); m_Circleposx.clear(); break;
     case 'q': t--; break;
     case 'w': t++; break;
     case 'e': t-=20; break;
     case 'r': t+=20; break;
-    case 'o': off=!off; break;
-    case 'p': spirit++; break;
-    case 'z': crop_x+=10; break;
-    case 'x': crop_x-=10; break;
-    case 'c': crop_y+=10; break;
-    case 'v': crop_y-=10; break;
-    case 'b': crop_w+=10; break;
-    case 'n': crop_w-=10; break;
-    case 'm': crop_h+=10; break;
-    case ',': crop_h-=10; break;
+    case 'u': m_CurrentFile--;
+      m_Fillposy.clear(); m_Fillposx.clear();
+      m_Circleposy.clear(); m_Circleposx.clear();
+      m_Frame = cvLoadImage(m_Files[m_CurrentFile].c_str());
+      break;
+    case 'c':
+      break;
 	}
-
-    if (crop_x<0) crop_x=0;
-    if (crop_x>=camera.m_Image->width) crop_x=camera.m_Image->width-1;
-    if (crop_y<0) crop_x=0;
-    if (crop_y>=camera.m_Image->height) crop_y=camera.m_Image->height-1;
-    if (crop_w+crop_x>camera.m_Image->width)
-    {
-        crop_w=camera.m_Image->width-crop_x;
-    }
-    if (crop_h+crop_y>camera.m_Image->height)
-    {
-        crop_h=camera.m_Image->height-crop_y;
-    }
 
     if (off)
     {
@@ -184,121 +189,92 @@ void App::Update(Image &camera)
         return;
     }
 
-    Image thresh=camera.RGB2GRAY().SubImage(crop_x,crop_y,crop_w,crop_h);
+    Image thresh=camera.RGB2GRAY();
     cvThreshold(thresh.m_Image,thresh.m_Image,t,255,CV_THRESH_BINARY);
     // copy the threshold into a colour image
     Image tofill=thresh.GRAY2RGB();
-    cvFloodFill(tofill.m_Image,cvPoint(10,10), CV_RGB(0,255,0),cvScalar(0),cvScalar(255));
 
-    CBlobResult blobs;
-    blobs = CBlobResult( thresh.m_Image, NULL, 255 );
+    for (int n=0; n<m_Fillposx.size(); n++) {
+      cvFloodFill(tofill.m_Image,cvPoint(m_Fillposx[n],m_Fillposy[n]),
+                  CV_RGB(0,255,0),cvScalar(0),cvScalar(255));
+    }
+
+    for (int n=0; n<m_Circleposx.size(); n++) {
+      cvCircle(tofill.m_Image,cvPoint(m_Circleposx[n],m_Circleposy[n]),
+               50,CV_RGB(0,255,0),-1);
+    }
+
+
+    //CBlobResult blobs;
+    //blobs = CBlobResult( tofill.m_Image, NULL, 255 );
     // exclude the ones smaller than param2 value
-    blobs.Filter( blobs, B_EXCLUDE, CBlobGetArea(), B_LESS, 10);
+    //blobs.Filter( blobs, B_EXCLUDE, CBlobGetArea(), B_LESS, 10);
 
-    CBlob *currentBlob;
+    //CBlob *currentBlob;
     Image *out=NULL;
 
-    if (key=='s')
-    {
-        // add the alpha channel
-        Image src=camera.SubImage(crop_x,crop_y,crop_w,crop_h);
-        out = new Image(src.m_Image->width,
-                        src.m_Image->height, 8, 4);
+    if (key=='s') {
+      // add the alpha channel
+      Image src=camera.SubImage(crop_x,crop_y,crop_w,crop_h);
+      out = new Image(src.m_Image->width,
+                      src.m_Image->height, 8, 4);
+      Image *for_cont = new Image(src.m_Image->width,
+                                  src.m_Image->height, 8, 1);
+      for(int y=0; y<src.m_Image->height; y++) {
+        for(int x=0; x<src.m_Image->width; x++) {
+          CvScalar col = cvGet2D(src.m_Image,y,x);
+          CvScalar alpha = cvGet2D(tofill.m_Image,y,x);
 
-        for(int y=0; y<src.m_Image->height; y++)
-        {
-
-            for(int x=0; x<src.m_Image->width; x++)
-            {
-                CvScalar col = cvGet2D(src.m_Image,y,x);
-                CvScalar alpha = cvGet2D(tofill.m_Image,y,x);
-                if (alpha.val[0]==0 &&
-                    alpha.val[1]==255 &&
-                    alpha.val[2]==0)
-                    col.val[3]=0;
-                else
-                    col.val[3]=255;
-                cvSet2D(out->m_Image,y,x,col);
-            }
+          if (alpha.val[0]==0 &&
+              alpha.val[1]==255 &&
+              alpha.val[2]==0) {
+            col.val[3]=255;
+            cvSet2D(for_cont->m_Image,y,x,cvScalar(1));
+          } else {
+            col.val[3]=0;
+            cvSet2D(for_cont->m_Image,y,x,cvScalar(0));
+          }
+          cvSet2D(out->m_Image,y,x,col);
         }
-    }
+      }
 
-    if (key=='s')
-    {
-        cerr<<"deleting old images in islands/"<<endl;
-        int r=system("rm islands/*");
-    }
+      //Search countours in preprocesed image
+      CvMemStorage* storage = cvCreateMemStorage(0);
+      CvSeq* contour;
+      CvSeq* contourLow;
 
-    list<CvRect> allrects;
+      cvFindContours( for_cont->m_Image, storage, &contour, sizeof(CvContour),
+                      CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cvPoint(0, 0) );
 
-    for (int i = 0; i < blobs.GetNumBlobs(); i++ )
-    {
-        currentBlob = blobs.GetBlob(i);
-        allrects.push_back(currentBlob->GetBoundingBox());
-    }
+      contourLow=cvApproxPoly(contour, sizeof(CvContour), storage,CV_POLY_APPROX_DP,1,1);
+      if (contourLow!=0) {
+        int xmin=99999,ymin=99999,xmax=0,ymax=0;
 
-    list<CvRect> filteredrects=allrects;
-
-    /* for (list<CvRect>::iterator i=allrects.begin();
-         i!=allrects.end(); ++i)
-    {
-        bool in=false;
-        for (list<CvRect>::iterator j=allrects.begin();
-             j!=allrects.end(); ++j)
-        {
-            if (Inside(*i,*j)) in=true;
+        for(; contourLow != 0; contourLow = contourLow->h_next) {
+          CvRect rect;
+          rect=cvBoundingRect(contourLow, NULL);
+          if (rect.x<xmin) xmin = rect.x;
+          if (rect.y<ymin) ymin = rect.y;
+          if (rect.x+rect.width>xmax) xmax = rect.x+rect.width;
+          if (rect.y+rect.height>ymax) ymax = rect.y+rect.height;
         }
-        if (!in) filteredrects.push_back(*i);
-        }*/
 
-    unsigned int instance = rand();
+        Image island = out->SubImage(xmin,ymin,
+                                     xmax-xmin,ymax-ymin);
 
-    list<CvRect>::iterator largest = filteredrects.end();
-    float biggest_size=0;
-    unsigned int count=0;
-    for (list<CvRect>::iterator i=filteredrects.begin();
-         i!=filteredrects.end(); ++i)
-    {
-        CvRect rect = *i;
-        float size = rect.width*rect.height;
-        if (size>biggest_size) {
-            biggest_size = size;
-            largest = i;
-        }
-    }
+        char buf[256];
+        sprintf(buf,"dump/autocrab-%d.png",m_CurrentFile);
+        cerr<<"saving "<<buf<<endl;
+        island.Save(buf);
+      } else {
+        cerr<<"no contour found..."<<endl;
+      }
 
-    if (largest!=filteredrects.end())
-    {
-        CvRect rect = *largest;
-
-        if (key=='s')
-        {
-            Image island = out->SubImage(rect.x,rect.y,
-                                         rect.width,rect.height);
-
-            char buf[256];
-            /*sprintf(buf,"islands/autolob-%d-%d-%d.png",count,
-                    rect.x+rect.width/2,
-                    rect.y+rect.height/2);
-            cerr<<"saving "<<buf<<endl;
-            island.Save(buf);*/
-
-            sprintf(buf,"dump/autolob-%d-%d-%d.png",
-                    instance,
-                    rect.x+rect.width/2,
-                    rect.y+rect.height/2);
-            cerr<<"saving "<<buf<<endl;
-            island.Save(buf);
-
-        }
-        else
-        {
-            cvRectangle(camera.m_Image,
-                        cvPoint(crop_x+rect.x,crop_y+rect.y),
-                        cvPoint(crop_x+rect.x+rect.width,
-                                crop_y+rect.y+rect.height),
-                        colors[1]);
-        }
+      //m_Capture = cvCaptureFromFile(filename.c_str());
+      m_CurrentFile++;
+      m_Frame = cvLoadImage(m_Files[m_CurrentFile].c_str());
+      m_Fillposy.clear(); m_Fillposx.clear();
+      m_Circleposy.clear(); m_Circleposx.clear();
     }
 
     if (viewthresh) camera=tofill;
@@ -307,11 +283,6 @@ void App::Update(Image &camera)
     sprintf(buf,"spirit: %s thresh: %d", spirits[spirit%3], t);
     cvPutText(camera.m_Image, buf, cvPoint(10,20),
               &m_Font, colors[0]);
-
-    cvRectangle(camera.m_Image,
-                cvPoint(crop_x,crop_y),
-                cvPoint(crop_x+crop_w,crop_y+crop_h),
-                colors[2]);
 
     if (out!=NULL) delete out;
 }
