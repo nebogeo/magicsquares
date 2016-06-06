@@ -38,8 +38,19 @@ public:
     vector<int> m_Fillposy;
     vector<int> m_Circleposx;
     vector<int> m_Circleposy;
+    vector<int> m_Circlesize;
+
+    int m_CurrentCircleSize;
 
 private:
+    void ClearStuff() {
+      m_Fillposy.clear();
+      m_Fillposx.clear();
+      m_Circleposy.clear();
+      m_Circleposx.clear();
+      m_Circlesize.clear();
+    }
+
     static void CallBackFunc(int event, int x, int y, int flags, void* userdata);
 
 	CvCapture* m_Capture;

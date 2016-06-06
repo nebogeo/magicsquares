@@ -40,7 +40,8 @@ m_Frame(NULL),
 m_FrameCopy(NULL),
 m_FrameNum(0),
 m_SingleImage(false),
-m_CurrentFile(0)
+m_CurrentFile(0),
+m_CurrentCircleSize(10)
 {
 	if (filename=="")
 	{
@@ -77,7 +78,7 @@ m_CurrentFile(0)
 
 	cvInitFont( &m_Font, CV_FONT_HERSHEY_PLAIN, 1, 1, 0, 1, CV_AA );
 	cvInitFont( &m_LargeFont, CV_FONT_HERSHEY_PLAIN, 5, 5, 0, 10, CV_AA );
-	cvNamedWindow( "harvest", 1 );
+	cvNamedWindow( "a u t o c r a b", 1 );
 }
 
 App::~App()
@@ -97,15 +98,28 @@ static CvScalar colors[] =
     };
 
 
+static int mouse_button = -1;
+
  void App::CallBackFunc(int event, int x, int y, int flags, void* userdata) {
   App *ctx = (App*)userdata;
+  if (event==CV_EVENT_MOUSEMOVE && mouse_button!=-1) {
+    event = mouse_button;
+  }
+
   if (event==1) {
     ctx->m_Fillposx.push_back(x*2);
     ctx->m_Fillposy.push_back(y*2);
   }
+
   if (event==2) {
+    mouse_button = 2;
+    ctx->m_Circlesize.push_back(ctx->m_CurrentCircleSize);
     ctx->m_Circleposx.push_back(x*2);
     ctx->m_Circleposy.push_back(y*2);
+  }
+
+  if (event==CV_EVENT_LBUTTONUP || event==CV_EVENT_RBUTTONUP) {
+    mouse_button=-1;
   }
 }
 
@@ -115,8 +129,8 @@ void App::Run()
 	Update(camera);
     Image resized = camera.Scale(camera.m_Image->width/2,
                                  camera.m_Image->height/2);
-	cvShowImage("harvest", resized.m_Image);
-    cvSetMouseCallback("harvest", CallBackFunc, this);
+	cvShowImage("a u t o c r a b", resized.m_Image);
+    cvSetMouseCallback("a u t o c r a b", CallBackFunc, this);
 }
 
 char *spirits[]={"TreeSpirit","ShrubSpirit","CoverSpirit"};
@@ -151,7 +165,7 @@ void App::Update(Image &camera)
 //    usleep(500);
 
 	static int t=35;
-    static bool viewthresh=true;
+    static int viewthresh=1;
     static bool off=false;
     static int spirit=0;
     static int crop_x=0;
@@ -166,20 +180,31 @@ void App::Update(Image &camera)
 
 	switch (key)
 	{
-    case 't': viewthresh=!viewthresh; break;
-    case 'f': m_Fillposy.clear(); m_Fillposx.clear();
-      m_Circleposy.clear(); m_Circleposx.clear(); break;
+    case 't': viewthresh=(viewthresh+1)%3; break;
+    case 'f': ClearStuff(); break;
     case 'q': t--; break;
     case 'w': t++; break;
     case 'e': t-=20; break;
     case 'r': t+=20; break;
     case 'u': m_CurrentFile--;
-      m_Fillposy.clear(); m_Fillposx.clear();
-      m_Circleposy.clear(); m_Circleposx.clear();
+      ClearStuff();
       m_Frame = cvLoadImage(m_Files[m_CurrentFile].c_str());
       break;
-    case 'c':
+    case 'z':
+      if (m_Circleposx.size()>0) {
+        m_Circleposx.pop_back();
+        m_Circleposy.pop_back();
+        m_Circlesize.pop_back();
+      }
       break;
+    case 'x':
+      if (m_Fillposx.size()>0) {
+        m_Fillposx.pop_back();
+        m_Fillposy.pop_back();
+      }
+      break;
+    case '=': m_CurrentCircleSize++; break;
+    case '-': if (m_CurrentCircleSize>1) m_CurrentCircleSize--; break;
 	}
 
     if (off)
@@ -194,14 +219,15 @@ void App::Update(Image &camera)
     // copy the threshold into a colour image
     Image tofill=thresh.GRAY2RGB();
 
+    for (int n=0; n<m_Circleposx.size(); n++) {
+      cvCircle(tofill.m_Image,cvPoint(m_Circleposx[n],
+                                      m_Circleposy[n]),
+               m_Circlesize[n],CV_RGB(0,255,0),-1);
+    }
+
     for (int n=0; n<m_Fillposx.size(); n++) {
       cvFloodFill(tofill.m_Image,cvPoint(m_Fillposx[n],m_Fillposy[n]),
                   CV_RGB(0,255,0),cvScalar(0),cvScalar(255));
-    }
-
-    for (int n=0; n<m_Circleposx.size(); n++) {
-      cvCircle(tofill.m_Image,cvPoint(m_Circleposx[n],m_Circleposy[n]),
-               50,CV_RGB(0,255,0),-1);
     }
 
 
@@ -263,7 +289,7 @@ void App::Update(Image &camera)
                                      xmax-xmin,ymax-ymin);
 
         char buf[256];
-        sprintf(buf,"dump/autocrab-%d.png",m_CurrentFile);
+        sprintf(buf,"dump/%s.png",m_Files[m_CurrentFile].c_str());
         cerr<<"saving "<<buf<<endl;
         island.Save(buf);
       } else {
@@ -273,16 +299,13 @@ void App::Update(Image &camera)
       //m_Capture = cvCaptureFromFile(filename.c_str());
       m_CurrentFile++;
       m_Frame = cvLoadImage(m_Files[m_CurrentFile].c_str());
-      m_Fillposy.clear(); m_Fillposx.clear();
-      m_Circleposy.clear(); m_Circleposx.clear();
+      ClearStuff();
     }
 
-    if (viewthresh) camera=tofill;
-
-    char buf[256];
-    sprintf(buf,"spirit: %s thresh: %d", spirits[spirit%3], t);
-    cvPutText(camera.m_Image, buf, cvPoint(10,20),
-              &m_Font, colors[0]);
+    if (viewthresh==1) cvAddWeighted(camera.m_Image, 0.5,
+                                   tofill.m_Image, 0.5, 0,
+                                   camera.m_Image);
+    if (viewthresh==2) camera=tofill;
 
     if (out!=NULL) delete out;
 }
